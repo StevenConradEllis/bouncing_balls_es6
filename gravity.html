@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Gravity</title>
+
+    <style>
+
+        canvas {
+            border: 1px solid black;
+            cursor: crosshair;
+        }
+
+        p {
+            margin: 0;
+        }
+
+    </style>
+
+</head>
+<body>
+
+
+<canvas id="gameCanvas"></canvas>
+<p>Throw the ball by holding and releasing the left mouse button on the canvas (reverse slingshot)</p>
+
+
+<script>
+
+
+    let gravity = 0.2, force = 0.2, traction = 0.5;
+
+    let balls = [];
+
+    let mouse = {
+        d: false,
+        x1: 0,
+        y1: 0,
+        x2: 0,
+        y2: 0,
+    };
+
+    let canvas = document.getElementById("gameCanvas");
+    let ctx = canvas.getContext("2d");
+
+    canvas.width = 500;
+    canvas.height = 300;
+
+    window.onmousedown = function (e) {
+        mouse.d = true;
+        mouse.x1 = mouse.x2 = e.pageX - canvas.getBoundingClientRect().left;
+        mouse.y1 = mouse.y2 = e.pageY - canvas.getBoundingClientRect().top;
+    };
+    window.onmousemove = function (e) {
+        if (mouse.d) {
+            mouse.x2 = e.pageX - canvas.getBoundingClientRect().left;
+            mouse.y2 = e.pageY - canvas.getBoundingClientRect().top;
+        } else {
+            mouse.x1 = mouse.x2 = e.pageX - canvas.getBoundingClientRect().left;
+            mouse.y1 = mouse.y2 = e.pageY - canvas.getBoundingClientRect().top;
+        }
+    };
+    window.onmouseup = function () {
+        if (mouse.d) {
+            mouse.d = false;
+
+            let dx = (mouse.x1 - mouse.x2);
+            let dy = (mouse.y1 - mouse.y2);
+            let mag = Math.sqrt(dx * dx + dy * dy); //length of hypotenuse on right angled triangle
+
+            balls.push(
+                new ball(mouse.x1, mouse.y1, 10, dx / mag * -(mag * force),
+                    dy / mag * -(mag * force), 0.7, getRandomColor()));
+
+
+        }
+    };
+
+    class ball {
+
+        constructor(x, y, radius, velocity_x, velocity_y, bounce, color) {
+
+            this.x = x;
+            this.y = y;
+            this.radius = radius;
+            this.velocity_x = velocity_x;
+            this.velocity_y = velocity_y;
+            this.bounce = bounce;
+            this.color = color;
+
+        }
+
+        updatePosition() {
+
+            if (this.x + this.radius >= canvas.width) {
+                this.velocity_x = -this.velocity_x * this.bounce;
+                this.x = canvas.width - this.radius;
+            } else if (this.x - this.radius <= 0) {
+                this.velocity_x = -this.velocity_x * this.bounce;
+                this.x = this.radius;
+            }
+            if (this.y + this.radius >= canvas.height) {
+                this.velocity_y = -this.velocity_y * this.bounce;
+                this.y = canvas.height - this.radius;
+                this.velocity_x *= traction;
+            } else if (this.y - this.radius <= 0) {
+                this.velocity_y = -this.velocity_y * this.bounce;
+                this.y = this.radius;
+            }
+
+            this.velocity_y += gravity;
+
+            this.x += this.velocity_x;
+            this.y += this.velocity_y;
+
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI, false);
+            ctx.fillStyle = this.color;
+            ctx.fill();
+
+
+        }
+
+        calculateCollisions() {
+
+            balls.forEach(item => {
+
+                if (item != this) {
+
+                    if (this.x + this.radius + item.radius > item.x
+                        && this.x < item.x + this.radius + item.radius
+                        && this.y + this.radius + item.radius > item.y
+                        && this.y < item.y + this.radius + item.radius) {
+                        if (distanceTo(this, item) < this.radius + item.radius) {
+                            calculateNewVelocities(this, item);
+
+                        }
+                    }
+
+
+                }
+
+
+            });
+
+        }
+
+
+    }
+
+    function distanceTo(a, b) {
+        let distance = Math.sqrt(((a.x - b.x) * (a.x - b.x)) + ((a.y - b.y) * (a.y - b.y)));
+        if (distance < 0) {
+            distance = distance * -1;
+        }
+        return distance;
+    }
+
+    function calculateNewVelocities(firstBall, secondBall) {
+
+
+        let newVelX1 = (firstBall.velocity_x * (firstBall.radius - secondBall.radius) +
+            (2 * secondBall.radius * secondBall.velocity_x)) / (firstBall.radius + secondBall.radius);
+
+
+        let newVelY1 = (firstBall.velocity_y * (firstBall.radius - secondBall.radius) +
+            (2 * secondBall.radius * secondBall.velocity_y)) / (firstBall.radius + secondBall.radius);
+
+        let newVelX2 = (secondBall.velocity_x * (secondBall.radius - firstBall.radius) +
+            (2 * firstBall.radius * firstBall.velocity_x)) / (firstBall.radius + secondBall.radius);
+
+        let newVelY2 = (secondBall.velocity_y * (secondBall.radius - firstBall.radius) +
+            (2 * firstBall.radius * firstBall.velocity_y)) / (firstBall.radius + secondBall.radius);
+
+        firstBall.velocity_x = newVelX1;
+        firstBall.velocity_y = newVelY1;
+        secondBall.velocity_x = newVelX2;
+        secondBall.velocity_y = newVelY2;
+
+        firstBall.x = firstBall.x + newVelX1;
+        firstBall.y = firstBall.y + newVelY1;
+        secondBall.x = secondBall.x + newVelX2;
+        secondBall.y = secondBall.y + newVelY2;
+
+        console.log(`firstBall.x : ${firstBall.x}; firstBall.y : ${firstBall.y}`);
+        console.log(`secondBall.x : ${secondBall.x}; secondBall.y : ${secondBall.y}`);
+
+
+        ctx.beginPath();
+        ctx.arc(firstBall.x, firstBall.y, firstBall.radius, 0, 2 * Math.PI, false);
+        ctx.fillStyle = firstBall.color;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(secondBall.x, secondBall.y, secondBall.radius, 0, 2 * Math.PI, false);
+        ctx.fillStyle = secondBall.color;
+        ctx.fill();
+
+
+    }
+
+    function getRandomColor() {
+        var letters = '0123456789ABCDEF'.split('');
+        var color = '#';
+        for (var i = 0; i < 6; i++) {
+            color += letters[Math.floor(Math.random() * 16)];
+        }
+        return color;
+    }
+
+    document.onselectstart = function () {
+        return false
+    }
+    document.oncontextmenu = function () {
+        return false
+    }
+
+    setInterval(update, 1000 / 60);
+
+    function update() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        ctx.beginPath();
+        ctx.moveTo(mouse.x1, mouse.y1);
+        ctx.lineTo(mouse.x2, mouse.y2);
+        ctx.stroke();
+        ctx.closePath();
+
+        for (let i = 0; i < balls.length; i++) {
+            balls[i].updatePosition();
+        }
+
+        for (let i = 0; i < balls.length; i++) {
+            balls[i].calculateCollisions();
+        }
+    }
+
+
+</script>
+
+
+</body>
+</html>
